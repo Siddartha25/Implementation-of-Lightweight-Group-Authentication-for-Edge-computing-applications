@@ -1,0 +1,95 @@
+attacker[passive]
+
+principal NodeA[
+knows private ka
+generates idA
+]
+
+principal NodeB[
+knows private kb
+generates idB
+]
+
+principal NodeGL[
+knows private kc
+generates idC
+]
+
+principal AuthS[
+knows private ka, kb, kc
+generates k0
+hk0 = HASH(k0)
+s1, s2, s3 = SHAMIR_SPLIT(k0)
+es1 = ENC(ka, s1)
+es2 = ENC(kb, s2)
+es3 = ENC(kc, s3)
+]
+
+AuthS -> NodeA : es1, hk0
+AuthS -> NodeB : es2, hk0
+AuthS -> NodeGL : es3, hk0
+
+principal NodeA[
+ds1 = DEC(ka, es1)
+]
+
+principal NodeB[
+ds2 = DEC(kb, es2)
+]
+
+principal NodeGL[
+ds3 = DEC(kc, es3)
+]
+
+NodeA -> NodeGL : ds1
+
+principal NodeGL[
+kk0 = SHAMIR_JOIN(ds1, ds3)
+hkk0 = HASH(kk0)
+]
+NodeGL -> NodeA : kk0
+NodeGL -> NodeB : kk0
+
+principal NodeA[
+sk1 = HASH(kk0, ka)
+tagA = MAC(sk1, idA)
+]
+
+principal NodeB[
+sk2 = HASH(kk0, kb)
+tagB = MAC(sk2, idB)
+]
+
+NodeA -> NodeGL : idA, tagA
+NodeB -> NodeGL : idB, tagB
+
+principal NodeGL[
+sk3 = HASH(kk0, kc)
+tagC = MAC(sk3, idC)
+]
+
+NodeGL -> AuthS : idA, tagA, idB, tagB, idC, tagC
+
+principal AuthS[
+ttagA = MAC(HASH(k0, ka), idA)
+ttagB = MAC(HASH(k0, kb), idB)
+ttagC = MAC(HASH(k0, kc), idC)
+
+generates tokenB
+
+etB = ENC(HASH(k0,kb), tokenB)
+]
+
+AuthS -> NodeB : etB
+
+principal NodeB[
+dtB = DEC(sk2, etB)
+]
+queries[
+equivalence? hk0, hkk0
+equivalence? tagA, ttagA
+equivalence? tagB, ttagB
+equivalence? tagC, ttagC
+confidentiality? tokenB
+authentication? AuthS -> NodeB : etB
+]
